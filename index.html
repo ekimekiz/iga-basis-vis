@@ -6,257 +6,139 @@
 <title>IGA Basis Function Visualizer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #f8f7f4;
-    --surface: #ffffff;
-    --border: rgba(0,0,0,0.10);
-    --border-mid: rgba(0,0,0,0.18);
-    --text: #1a1a18;
-    --text-muted: #6b6b67;
-    --accent: #185FA5;
-    --accent-light: #E6F1FB;
-    --teal: #0F6E56;
-    --teal-light: #E1F5EE;
-    --coral: #993C1D;
-    --coral-light: #FAECE7;
-    --radius: 10px;
-    --radius-sm: 6px;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem 1rem;
-  }
-
-  .page-wrap {
-    max-width: 860px;
-    margin: 0 auto;
-  }
-
-  header {
-    margin-bottom: 2rem;
-  }
-
-  header h1 {
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.3px;
-    color: var(--text);
-  }
-
-  header p {
-    margin-top: 5px;
-    font-size: 14px;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  header a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
-  header a:hover { text-decoration: underline; }
-
-  .card {
-    background: var(--surface);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 14px;
-  }
-
-  .card-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: var(--text-muted);
-    margin-bottom: 14px;
-  }
-
-  .controls-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-
-  .controls-row label {
-    font-size: 13px;
-    color: var(--text-muted);
-    min-width: 90px;
-  }
-
-  select {
-    appearance: none;
-    background: var(--bg);
-    border: 0.5px solid var(--border-mid);
-    border-radius: var(--radius-sm);
-    color: var(--text);
-    font-size: 13px;
-    padding: 6px 28px 6px 10px;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b6b67' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 9px center;
-  }
-
-  select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-  .mult-section-label {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-  }
-
-  .mult-row { display: flex; flex-wrap: wrap; gap: 10px; }
-
-  .knot-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--bg);
-    border: 0.5px solid var(--border-mid);
-    border-radius: var(--radius-sm);
-    padding: 5px 10px;
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .knot-tag .cont-label {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-weight: 400;
-    min-width: 24px;
-  }
-
-  .mult-ctrl { display: inline-flex; align-items: center; gap: 3px; }
-
-  .mult-ctrl button {
-    width: 22px; height: 22px;
-    border: 0.5px solid var(--border-mid);
-    border-radius: 4px;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 15px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    line-height: 1;
-    transition: background 0.1s;
-  }
-
-  .mult-ctrl button:hover { background: var(--accent-light); }
-
-  .mult-val {
-    min-width: 18px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .kv-display {
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--bg);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    margin-top: 12px;
-    border: 0.5px solid var(--border);
-    word-break: break-all;
-  }
-
-  .legend-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-
-  .legend-item {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .legend-swatch { width: 22px; height: 3px; border-radius: 2px; }
-
-  .chart-wrap {
-    position: relative;
-    width: 100%;
-    height: 300px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  thead th {
-    text-align: left;
-    padding: 6px 10px;
-    color: var(--text-muted);
-    font-weight: 500;
-    font-size: 12px;
-    border-bottom: 0.5px solid var(--border);
-  }
-
-  tbody td {
-    padding: 7px 10px;
-    border-bottom: 0.5px solid var(--border);
-    color: var(--text);
-  }
-
-  tbody tr:last-child td { border-bottom: none; }
-
-  .badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-    margin-left: 6px;
-  }
-
-  .badge-c { background: var(--teal-light); color: var(--teal); }
-  .badge-disc { background: var(--coral-light); color: var(--coral); }
-
-  footer {
-    margin-top: 2rem;
-    font-size: 12px;
-    color: var(--text-muted);
-    text-align: center;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8f7f4; --surface: #ffffff;
+  --border: rgba(0,0,0,0.10); --border-mid: rgba(0,0,0,0.18);
+  --text: #1a1a18; --text-muted: #6b6b67;
+  --accent: #185FA5; --accent-light: #E6F1FB;
+  --teal: #0F6E56; --teal-light: #E1F5EE;
+  --coral: #993C1D; --coral-light: #FAECE7;
+  --radius: 10px; --radius-sm: 6px;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+.page-wrap { max-width: 880px; margin: 0 auto; }
+header { margin-bottom: 2rem; }
+header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+header p { margin-top: 5px; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 14px; }
+.card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 14px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+label { font-size: 13px; color: var(--text-muted); }
+select {
+  appearance: none; background: var(--bg); border: 0.5px solid var(--border-mid);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 13px;
+  padding: 6px 28px 6px 10px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b6b67' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=text] {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 12px;
+  width: 100%; padding: 8px 12px; background: var(--bg);
+  border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); color: var(--text);
+}
+input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=number] {
+  width: 58px; padding: 4px 6px; font-size: 12px;
+  background: var(--surface); border: 0.5px solid var(--border-mid);
+  border-radius: var(--radius-sm); color: var(--text);
+}
+.seg { display: inline-flex; border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); overflow: hidden; }
+.seg button {
+  border: none; background: transparent; color: var(--text-muted); font-size: 12px;
+  padding: 6px 13px; cursor: pointer; transition: background 0.1s, color 0.1s; white-space: nowrap;
+}
+.seg button.active { background: var(--accent); color: #fff; }
+.seg button:not(.active):hover { background: var(--accent-light); color: var(--accent); }
+.toggle-wrap { display: flex; align-items: center; gap: 8px; }
+.tog { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; position: absolute; }
+.tog-sl { position: absolute; inset: 0; background: #ccc; border-radius: 20px; cursor: pointer; transition: 0.18s; }
+.tog-sl::before { content:''; position: absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:0.18s; }
+.tog input:checked + .tog-sl { background: var(--accent); }
+.tog input:checked + .tog-sl::before { transform: translateX(16px); }
+.tog-lbl { font-size: 13px; color: var(--text-muted); }
+.knot-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ktag {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--bg); border: 0.5px solid var(--border-mid);
+  border-radius: var(--radius-sm); padding: 5px 10px; font-size: 13px;
+}
+.ktag .clbl { font-size: 11px; color: var(--text-muted); min-width: 22px; }
+.mc { display: inline-flex; align-items: center; gap: 3px; }
+.mc button {
+  width: 20px; height: 20px; border: 0.5px solid var(--border-mid); border-radius: 4px;
+  background: var(--surface); color: var(--text); font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.mc button:hover { background: var(--accent-light); }
+.mv { min-width: 16px; text-align: center; font-size: 13px; font-weight: 600; }
+.kv-box {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; color: var(--text-muted);
+  background: var(--bg); border-radius: var(--radius-sm); padding: 8px 12px;
+  margin-top: 10px; border: 0.5px solid var(--border); word-break: break-all;
+}
+.err { color: var(--coral); font-size: 12px; margin-top: 6px; min-height: 18px; }
+.stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.stat-chip {
+  background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm);
+  padding: 5px 12px; font-size: 12px; color: var(--text-muted);
+}
+.stat-chip strong { color: var(--text); font-weight: 600; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.li { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
+.ls { width: 22px; height: 3px; border-radius: 2px; }
+.chart-wrap { position: relative; width: 100%; height: 300px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: 500; font-size: 12px; border-bottom: 0.5px solid var(--border); }
+tbody td { padding: 7px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+tbody tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-left: 4px; }
+.bc { background: var(--teal-light); color: var(--teal); }
+.bd { background: var(--coral-light); color: var(--coral); }
+footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align: center; }
+.hidden { display: none !important; }
 </style>
 </head>
 <body>
 <div class="page-wrap">
 
-  <header>
-    <h1>IGA B-Spline Basis Function Visualizer</h1>
-    <p>Plots N<sub>i,p</sub>(ξ) for a given knot vector via Cox&ndash;de Boor recursion. Adjust degree and interior knot multiplicities to explore continuity.</p>
-  </header>
+<header>
+  <h1>IGA B-Spline Basis Function Visualizer</h1>
+  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity.</p>
+</header>
 
-  <div class="card">
-    <div class="card-title">Knot vector parameters</div>
-    <div class="controls-row">
-      <label>Degree p</label>
-      <select id="deg">
-        <option value="1">p = 1</option>
-        <option value="2">p = 2</option>
-        <option value="3" selected>p = 3</option>
-        <option value="4">p = 4</option>
-        <option value="5">p = 5</option>
-      </select>
-      <label style="margin-left:12px;">Interior knots</label>
+<div class="card">
+  <div class="card-title">Knot vector</div>
+
+  <div class="row">
+    <label>Mode</label>
+    <div class="seg" id="modeSeg">
+      <button class="active" data-m="uniform">Uniform</button>
+      <button data-m="custom">Custom knots</button>
+      <button data-m="manual">Full manual</button>
+    </div>
+  </div>
+
+  <div id="pRow" class="row">
+    <label>Degree p</label>
+    <select id="deg">
+      <option value="1">p = 1</option>
+      <option value="2">p = 2</option>
+      <option value="3" selected>p = 3</option>
+      <option value="4">p = 4</option>
+      <option value="5">p = 5</option>
+    </select>
+    <div class="toggle-wrap" style="margin-left:16px;">
+      <label class="tog"><input type="checkbox" id="openToggle" checked><span class="tog-sl"></span></label>
+      <span class="tog-lbl">Open / clamped knot vector</span>
+    </div>
+  </div>
+
+  <div id="uniformPanel">
+    <div class="row">
+      <label>Interior knots</label>
       <select id="nInt">
         <option value="0">0</option>
         <option value="1">1</option>
@@ -266,54 +148,61 @@
         <option value="5">5</option>
       </select>
     </div>
-
-    <div id="multSection" style="margin-top:4px;">
-      <div class="mult-section-label">Interior knot multiplicities</div>
-      <div class="mult-row" id="multControls"></div>
-    </div>
-
-    <div class="kv-display" id="kvDisplay"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Basis functions</div>
-    <div class="legend-row" id="legend"></div>
-    <div class="chart-wrap">
-      <canvas id="basisChart" role="img" aria-label="B-spline basis functions"></canvas>
+    <div id="uMultSection">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Interior knot multiplicities</div>
+      <div class="knot-row" id="uMultControls"></div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">Continuity at interior knots</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Knot ξ</th>
-          <th>Multiplicity k</th>
-          <th>Continuity</th>
-          <th>Derivatives matched</th>
-        </tr>
-      </thead>
-      <tbody id="contBody"></tbody>
-    </table>
+  <div id="customPanel" class="hidden">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Define interior knots (values strictly between 0 and 1)</div>
+    <div class="knot-row" id="cKnotRows"></div>
+    <button id="addKnotBtn" style="margin-top:8px;font-size:12px;padding:5px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--bg);color:var(--accent);cursor:pointer;">+ add knot</button>
   </div>
 
-  <footer>Built with Chart.js &middot; Cox&ndash;de Boor recursion</footer>
+  <div id="manualPanel" class="hidden">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Enter knot vector (space or comma separated). Must be non-decreasing, start and end values repeated p+1 times for open vectors.</div>
+    <input type="text" id="manualInput" placeholder="e.g.  0 0 0 0.5 1 1 1" />
+    <div class="err" id="manualErr"></div>
+  </div>
 
+  <div class="kv-box" id="kvDisplay"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">Basis functions</div>
+  <div class="stats-row" id="statsRow"></div>
+  <div class="legend-row" id="legend"></div>
+  <div class="chart-wrap">
+    <canvas id="basisChart" role="img" aria-label="B-spline basis functions"></canvas>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Continuity at interior knots</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Knot ξ</th>
+        <th>Multiplicity k</th>
+        <th>Continuity</th>
+        <th>Active basis fns</th>
+        <th>Knot span index</th>
+      </tr>
+    </thead>
+    <tbody id="contBody"></tbody>
+  </table>
+</div>
+
+<footer>Built with Chart.js &middot; Cox&ndash;de Boor recursion</footer>
 </div>
 
 <script>
-const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#639922','#E24B4A','#0F6E56','#633806'];
+const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#639922','#E24B4A','#0F6E56','#633806','#D4537E','#888780'];
 
 let chart = null;
-
-function buildKV(p, iks) {
-  const kv = [];
-  for (let i = 0; i <= p; i++) kv.push(0);
-  for (const {xi, mult} of iks) for (let m = 0; m < mult; m++) kv.push(xi);
-  for (let i = 0; i <= p; i++) kv.push(1);
-  return kv;
-}
+let mode = 'uniform';
+let customKnots = [{xi: 0.333, mult: 1}, {xi: 0.667, mult: 1}];
 
 function N(i, p, t, kv) {
   if (p === 0) {
@@ -327,63 +216,178 @@ function N(i, p, t, kv) {
   return L + R;
 }
 
-function getState() {
-  const p = parseInt(document.getElementById('deg').value);
+function getP() { return parseInt(document.getElementById('deg').value); }
+function isOpen() { return document.getElementById('openToggle').checked; }
+
+function buildKV_uniform() {
+  const p = getP(), open = isOpen();
   const nInt = parseInt(document.getElementById('nInt').value);
   const iks = [];
   for (let j = 0; j < nInt; j++) {
-    const xi = parseFloat(((j+1)/(nInt+1)).toFixed(4));
-    const el = document.getElementById('mult_'+j);
-    const mult = el ? parseInt(el.textContent) : 1;
+    const xi = parseFloat(((j+1)/(nInt+1)).toFixed(6));
+    const el = document.getElementById('um_'+j);
+    const mult = el ? Math.min(parseInt(el.textContent), p) : 1;
     iks.push({xi, mult});
   }
-  return {p, nInt, iks};
+  return buildFromIKS(p, open, iks);
 }
 
-function renderControls() {
-  const {p, nInt, iks} = getState();
+function buildFromIKS(p, open, iks) {
+  const startMult = open ? p+1 : 1;
+  const endMult = open ? p+1 : 1;
+  const kv = [];
+  for (let i = 0; i < startMult; i++) kv.push(0);
+  for (const {xi, mult} of iks) for (let m = 0; m < mult; m++) kv.push(xi);
+  for (let i = 0; i < endMult; i++) kv.push(1);
+  return kv;
+}
+
+function buildKV_custom() {
+  const p = getP(), open = isOpen();
+  const iks = customKnots.map((k,j) => {
+    const xiEl = document.getElementById('cxi_'+j);
+    const multEl = document.getElementById('cm_'+j);
+    const xi = xiEl ? parseFloat(xiEl.value) : k.xi;
+    const mult = multEl ? Math.min(parseInt(multEl.textContent), p) : k.mult;
+    return {xi: isNaN(xi) ? k.xi : xi, mult};
+  }).filter(k => k.xi > 0 && k.xi < 1)
+    .sort((a,b) => a.xi - b.xi);
+  return buildFromIKS(p, open, iks);
+}
+
+function buildKV_manual() {
+  const raw = document.getElementById('manualInput').value;
+  const parts = raw.trim().split(/[\s,]+/).map(Number);
+  if (parts.some(isNaN) || parts.length < 2) return null;
+  for (let i = 1; i < parts.length; i++) if (parts[i] < parts[i-1]) return null;
+  return parts;
+}
+
+function getKV() {
+  if (mode === 'uniform') return {kv: buildKV_uniform(), err: null};
+  if (mode === 'custom') return {kv: buildKV_custom(), err: null};
+  const kv = buildKV_manual();
+  if (!kv) return {kv: null, err: 'Invalid knot vector — must be non-decreasing numbers.'};
+  return {kv, err: null};
+}
+
+function inferP(kv) {
+  if (mode !== 'manual') return getP();
+  const startVal = kv[0];
+  let p = 0;
+  while (p+1 < kv.length && kv[p+1] === startVal) p++;
+  return Math.max(p, 1);
+}
+
+function getInteriorKnots(kv) {
+  const first = kv[0], last = kv[kv.length-1];
+  const seen = new Map();
+  for (const v of kv) {
+    if (v === first || v === last) continue;
+    seen.set(v, (seen.get(v) || 0) + 1);
+  }
+  return Array.from(seen.entries()).map(([xi, mult]) => ({xi, mult})).sort((a,b)=>a.xi-b.xi);
+}
+
+function spanIndex(xi, kv) {
+  for (let i = 0; i < kv.length-1; i++) {
+    if (xi >= kv[i] && xi < kv[i+1]) return i;
+  }
+  return kv.length - 2;
+}
+
+function activeBasisCount(p) { return p + 1; }
+
+function renderUniformControls() {
+  const p = getP();
+  const nInt = parseInt(document.getElementById('nInt').value);
   const prev = {};
   for (let j = 0; j < 6; j++) {
-    const el = document.getElementById('mult_'+j);
+    const el = document.getElementById('um_'+j);
     if (el) prev[j] = parseInt(el.textContent);
   }
-  const container = document.getElementById('multControls');
-  const section = document.getElementById('multSection');
+  const container = document.getElementById('uMultControls');
+  const section = document.getElementById('uMultSection');
   container.innerHTML = '';
   section.style.display = nInt === 0 ? 'none' : 'block';
   for (let j = 0; j < nInt; j++) {
-    const xi = ((j+1)/(nInt+1)).toFixed(2);
+    const xi = ((j+1)/(nInt+1)).toFixed(3);
     const cur = Math.min(prev[j] || 1, p);
     const wrap = document.createElement('div');
-    wrap.className = 'knot-tag';
+    wrap.className = 'ktag';
     wrap.innerHTML = `<span>ξ = ${xi}</span>
-      <div class="mult-ctrl">
-        <button id="dec_${j}">−</button>
-        <span class="mult-val" id="mult_${j}">${cur}</span>
-        <button id="inc_${j}">+</button>
+      <div class="mc">
+        <button id="udec_${j}">−</button>
+        <span class="mv" id="um_${j}">${cur}</span>
+        <button id="uinc_${j}">+</button>
       </div>
-      <span class="cont-label" id="ctag_${j}"></span>`;
+      <span class="clbl" id="uctag_${j}"></span>`;
     container.appendChild(wrap);
-    document.getElementById('dec_'+j).onclick = () => {
-      const v = parseInt(document.getElementById('mult_'+j).textContent);
-      if (v > 1) { document.getElementById('mult_'+j).textContent = v-1; update(); }
+    document.getElementById('udec_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('um_'+j).textContent);
+      if (v > 1) { document.getElementById('um_'+j).textContent = v-1; update(); }
     };
-    document.getElementById('inc_'+j).onclick = () => {
-      const v = parseInt(document.getElementById('mult_'+j).textContent);
-      if (v < p) { document.getElementById('mult_'+j).textContent = v+1; update(); }
+    document.getElementById('uinc_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('um_'+j).textContent);
+      if (v < getP()) { document.getElementById('um_'+j).textContent = v+1; update(); }
     };
   }
-  update();
+}
+
+function renderCustomControls() {
+  const p = getP();
+  const container = document.getElementById('cKnotRows');
+  container.innerHTML = '';
+  customKnots.forEach((k, j) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ktag';
+    const cur = Math.min(k.mult, p);
+    wrap.innerHTML = `<span style="font-size:12px;color:var(--text-muted);">ξ =</span>
+      <input type="number" id="cxi_${j}" value="${k.xi.toFixed(4)}" min="0.0001" max="0.9999" step="0.0001" style="width:72px;">
+      <span style="font-size:12px;color:var(--text-muted);">mult</span>
+      <div class="mc">
+        <button id="cdec_${j}">−</button>
+        <span class="mv" id="cm_${j}">${cur}</span>
+        <button id="cinc_${j}">+</button>
+      </div>
+      <button id="crm_${j}" style="border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:15px;padding:0 2px;" title="remove">×</button>`;
+    container.appendChild(wrap);
+    document.getElementById('cxi_'+j).onchange = () => {
+      customKnots[j].xi = parseFloat(document.getElementById('cxi_'+j).value) || k.xi;
+      update();
+    };
+    document.getElementById('cdec_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('cm_'+j).textContent);
+      if (v > 1) { customKnots[j].mult = v-1; document.getElementById('cm_'+j).textContent = v-1; update(); }
+    };
+    document.getElementById('cinc_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('cm_'+j).textContent);
+      if (v < getP()) { customKnots[j].mult = v+1; document.getElementById('cm_'+j).textContent = v+1; update(); }
+    };
+    document.getElementById('crm_'+j).onclick = () => {
+      customKnots.splice(j, 1);
+      renderCustomControls();
+      update();
+    };
+  });
 }
 
 function update() {
-  const {p, nInt, iks} = getState();
-  const kv = buildKV(p, iks);
+  const {kv, err} = getKV();
+  const errEl = document.getElementById('manualErr');
+  if (errEl) errEl.textContent = err || '';
+  if (!kv) { return; }
+
+  const p = inferP(kv);
   const n = kv.length - p - 2;
+  if (n < 0) return;
 
-  document.getElementById('kvDisplay').textContent = 'Ξ = [ ' + kv.map(v => v % 1 === 0 ? v : v.toFixed(3)).join('  ') + ' ]';
+  document.getElementById('kvDisplay').textContent = 'Ξ = [ ' + kv.map(v => {
+    const s = parseFloat(v.toFixed(4)).toString();
+    return s;
+  }).join('  ') + ' ]';
 
-  const M = 500;
+  const M = 600;
   const ts = Array.from({length: M+1}, (_, i) => i/M);
 
   const datasets = [];
@@ -400,12 +404,29 @@ function update() {
     });
   }
 
+  const iks = getInteriorKnots(kv);
+
+  const statsRow = document.getElementById('statsRow');
+  statsRow.innerHTML = '';
+  const chips = [
+    {label: 'Degree', val: `p = ${p}`},
+    {label: 'Basis functions', val: `n+1 = ${n+1}`},
+    {label: 'Knot vector length', val: `m+1 = ${kv.length}`},
+    {label: 'Knot spans', val: `${kv.length - 1 - 2*p}`},
+  ];
+  chips.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'stat-chip';
+    el.innerHTML = `${c.label}: <strong>${c.val}</strong>`;
+    statsRow.appendChild(el);
+  });
+
   const legend = document.getElementById('legend');
   legend.innerHTML = '';
   datasets.forEach((d, i) => {
     const item = document.createElement('div');
-    item.className = 'legend-item';
-    item.innerHTML = `<span class="legend-swatch" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i},${p}</sub></span>`;
+    item.className = 'li';
+    item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i},${p}</sub></span>`;
     legend.appendChild(item);
   });
 
@@ -426,7 +447,7 @@ function update() {
       },
       scales: {
         x: {
-          type: 'linear', min: 0, max: 1,
+          type: 'linear', min: kv[0], max: kv[kv.length-1],
           title: {display: true, text: 'ξ', color: '#6b6b67', font: {size: 13}},
           grid: {color: 'rgba(0,0,0,0.06)'},
           ticks: {color: '#6b6b67', font: {size: 11}, maxTicksLimit: 11}
@@ -444,27 +465,55 @@ function update() {
   const tbody = document.getElementById('contBody');
   tbody.innerHTML = '';
   if (iks.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="color:#6b6b67;padding:10px 10px;">No interior knots — basis is C<sup>∞</sup> on (0,1)</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:10px;">No interior knots — basis is C<sup>∞</sup> on the interior</td></tr>`;
     return;
   }
-  for (let j = 0; j < iks.length; j++) {
-    const {xi, mult} = iks[j];
+  iks.forEach(({xi, mult}, idx) => {
     const cont = p - mult;
     const contStr = cont >= 0 ? `C<sup>${cont}</sup>` : 'discontinuous';
-    const badgeCls = cont >= 0 ? 'badge-c' : 'badge-disc';
+    const badgeCls = cont >= 0 ? 'bc' : 'bd';
     const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
-    const derivLabel = cont < 0 ? 'none' : cont === 0 ? 'value only' : `up to ${cont === 1 ? '1st' : cont === 2 ? '2nd' : cont === 3 ? '3rd' : cont+'th'} derivative`;
+    const span = spanIndex(xi, kv);
+    const active = activeBasisCount(p);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>ξ = ${xi.toFixed(3)}</td><td>${mult}</td><td>${contStr}<span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${derivLabel}</td>`;
+    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td>${contStr}<span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${active}</td><td>${span}</td>`;
     tbody.appendChild(tr);
-    const ctag = document.getElementById('ctag_'+j);
-    if (ctag) ctag.textContent = `C${cont >= 0 ? cont : '\u207b\u00b9'}`;
-  }
+    if (mode === 'uniform') {
+      const ctag = document.getElementById('uctag_'+idx);
+      if (ctag) ctag.textContent = `C${cont >= 0 ? cont : '\u207b\u00b9'}`;
+    }
+  });
 }
 
-document.getElementById('deg').onchange = renderControls;
-document.getElementById('nInt').onchange = renderControls;
-renderControls();
+document.getElementById('deg').onchange = () => { renderUniformControls(); renderCustomControls(); update(); };
+document.getElementById('nInt').onchange = () => { renderUniformControls(); update(); };
+document.getElementById('openToggle').onchange = update;
+document.getElementById('manualInput').oninput = update;
+document.getElementById('addKnotBtn').onclick = () => {
+  const last = customKnots.length ? customKnots[customKnots.length-1].xi : 0;
+  const next = parseFloat(Math.min(last + 0.2, 0.9).toFixed(3));
+  customKnots.push({xi: next, mult: 1});
+  renderCustomControls();
+  update();
+};
+
+document.getElementById('modeSeg').querySelectorAll('button').forEach(btn => {
+  btn.onclick = () => {
+    mode = btn.dataset.m;
+    document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('uniformPanel').classList.toggle('hidden', mode !== 'uniform');
+    document.getElementById('customPanel').classList.toggle('hidden', mode !== 'custom');
+    document.getElementById('manualPanel').classList.toggle('hidden', mode !== 'manual');
+    document.getElementById('pRow').classList.toggle('hidden', mode === 'manual');
+    renderCustomControls();
+    update();
+  };
+});
+
+renderUniformControls();
+renderCustomControls();
+update();
 </script>
 </body>
 </html>
