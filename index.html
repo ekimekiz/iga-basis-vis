@@ -275,7 +275,16 @@ function buildKV_manual() {
   const parts = raw.trim().split(/[\s,]+/).map(Number);
   if (parts.some(isNaN) || parts.length < 2) return null;
   for (let i = 1; i < parts.length; i++) if (parts[i] < parts[i-1]) return null;
-  return parts;
+  const p = parseInt(document.getElementById('degManual').value);
+  const open = document.getElementById('openToggleManual').checked;
+  if (!open) return parts;
+  const first = parts[0], last = parts[parts.length-1];
+  const interior = parts.filter(v => v !== first && v !== last);
+  const kv = [];
+  for (let i = 0; i < p+1; i++) kv.push(first);
+  for (const v of interior) kv.push(v);
+  for (let i = 0; i < p+1; i++) kv.push(last);
+  return kv;
 }
 
 function validateKV(kv, p) {
