@@ -187,7 +187,13 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
 <div class="card">
   <div class="card-title">Basis functions</div>
   <div class="stats-row" id="statsRow"></div>
-  <div class="legend-row" id="legend"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+    <div class="legend-row" id="legend" style="margin-bottom:0;"></div>
+    <div class="toggle-wrap">
+      <label class="tog"><input type="checkbox" id="grevilleToggle" checked><span class="tog-sl"></span></label>
+      <span class="tog-lbl">Greville abscissae</span>
+    </div>
+  </div>
   <div class="chart-wrap">
     <canvas id="basisChart" role="img" aria-label="B-spline basis functions"></canvas>
   </div>
@@ -338,11 +344,16 @@ function getInteriorKnots(kv) {
   return Array.from(seen.entries()).map(([xi, mult]) => ({xi, mult})).sort((a,b)=>a.xi-b.xi);
 }
 
-function spanIndex(xi, kv) {
-  for (let i = 0; i < kv.length-1; i++) {
-    if (xi >= kv[i] && xi < kv[i+1]) return i;
+function spanIndices(xi, kv) {
+  const all = [];
+  let active = -1;
+  for (let i = 0; i < kv.length; i++) {
+    if (Math.abs(kv[i] - xi) < 1e-10) {
+      all.push(i);
+      if (i < kv.length-1 && kv[i+1] > xi) active = i;
+    }
   }
-  return kv.length - 2;
+  return {all, active};
 }
 
 function activeBasisCount(p) { return p + 1; }
@@ -487,6 +498,21 @@ function update() {
     legend.appendChild(item);
   });
 
+  const showGreville = document.getElementById('grevilleToggle').checked;
+  const greville = [];
+  for (let i = 0; i <= n; i++) {
+    let tau = 0;
+    for (let j = 1; j <= p; j++) tau += kv[i+j];
+    greville.push(parseFloat((tau/p).toFixed(6)));
+  }
+
+  const grevillePoints = showGreville ? greville.map((tau, i) => ({
+    type: 'point', xValue: tau, yValue: 0,
+    backgroundColor: COLORS[i % COLORS.length],
+    borderColor: '#fff', borderWidth: 1.5,
+    radius: 5,
+  })) : [];
+
   const knotLines = iks.map(({xi}) => ({
     type: 'line', xMin: xi, xMax: xi,
     borderColor: 'rgba(0,0,0,0.15)', borderWidth: 1, borderDash: [4,3]
@@ -530,10 +556,14 @@ function update() {
     const contStr = cont >= 0 ? `C<sup>${cont}</sup>` : 'discontinuous';
     const badgeCls = cont >= 0 ? 'bc' : 'bd';
     const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
-    const span = spanIndex(xi, kv);
+    const {all, active} = spanIndices(xi, kv);
+    const spanStr = all.map(idx => idx === active
+      ? `<strong>${idx}</strong>`
+      : `<span style="color:var(--text-muted)">${idx}</span>`
+    ).join(', ');
     const active = activeBasisCount(p);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td>${contStr}<span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${active}</td><td>${span}</td>`;
+    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td><span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${active}</td><td>${spanStr}</td>`;
     tbody.appendChild(tr);
     if (mode === 'uniform') {
       const ctag = document.getElementById('uctag_'+idx);
@@ -543,7 +573,7 @@ function update() {
 }
 
 document.getElementById('deg').onchange = () => { renderUniformControls(); renderCustomControls(); update(); };
-document.getElementById('degManual').onchange = update;
+document.getElementById('grevilleToggle').onchange = update;
 document.getElementById('openToggleManual').onchange = update;
 document.getElementById('nInt').onchange = () => { renderUniformControls(); update(); };
 document.getElementById('openToggle').onchange = update;
