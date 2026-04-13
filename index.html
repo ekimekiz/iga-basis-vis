@@ -248,9 +248,8 @@ function activeBasisAtKnot(xi, p, kv) {
 
 function evalBasis(i, p, t, kv) {
   const tMax = kv[kv.length-1];
-  // for the last basis function at the right endpoint, clamp to avoid the vertical drop
-  if (Math.abs(t - tMax) < 1e-10 && i === kv.length - p - 2) return N(i, p, tMax, kv);
-  if (t >= tMax) return 0;
+  const lastIdx = kv.length - p - 2;
+  if (t >= tMax) return (i === lastIdx) ? N(i, p, tMax, kv) : 0;
   return N(i, p, t, kv);
 } return parseInt(document.getElementById('deg').value); }
 function getPManual() { return parseInt(document.getElementById('degManual').value); }
