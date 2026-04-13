@@ -225,7 +225,7 @@ footer a:hover { text-decoration: underline; }
 </div>
 
 <footer>
-  Built with Chart.js &middot; Cox&ndash;de Boor recursion &middot; Generated with <a href="https://claude.ai">Claude</a><br>
+  Built with Chart.js &middot; Cox&ndash;de Boor recursion<br>
   <a href="mailto:ekiz@utexas.edu">Ekim Ekiz</a>
 </footer>
 </div>
@@ -414,8 +414,8 @@ function buildAnnotations(kv, p, n, showKnotLines, showGreville, highlightIdx) {
   const annotations = {};
   const tMin = kv[0], tMax = kv[kv.length-1];
 
-  // all unique knot values including endpoints
-  const uniqueKnots = [...new Set(kv)].sort((a,b) => a-b);
+  // all unique knot values excluding endpoints
+  const uniqueKnots = [...new Set(kv)].sort((a,b) => a-b).filter(v => v > kv[0] && v < kv[kv.length-1]);
 
   if (showKnotLines) {
     uniqueKnots.forEach((xi, idx) => {
@@ -518,17 +518,18 @@ function update() {
     });
   }
 
-  // legend
+  // legend — build once, don't rebuild on hover
   const legend = document.getElementById('legend');
   legend.innerHTML = '';
-  datasets.forEach((d,i) => {
+  for (let i = 0; i <= n; i++) {
     const item = document.createElement('div');
-    item.className = 'li' + (hoveredIdx !== null && hoveredIdx !== i ? ' faded' : '');
+    item.className = 'li';
+    item.dataset.idx = i;
     item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i+1},${p}</sub></span>`;
-    item.onmouseenter = () => { hoveredIdx = i; renderChart(); };
-    item.onmouseleave = () => { hoveredIdx = null; renderChart(); };
+    item.onmouseenter = () => { hoveredIdx = parseInt(item.dataset.idx); renderChart(); updateLegendFade(); };
+    item.onmouseleave = () => { hoveredIdx = null; renderChart(); updateLegendFade(); };
     legend.appendChild(item);
-  });
+  }
 
   renderChart();
 
@@ -555,7 +556,13 @@ function update() {
   });
 }
 
-function renderChart() {
+function updateLegendFade() {
+  document.querySelectorAll('#legend .li').forEach(item => {
+    const i = parseInt(item.dataset.idx);
+    item.classList.toggle('faded', hoveredIdx !== null && hoveredIdx !== i);
+  });
+}
+
   if (!lastKV) return;
   const kv = lastKV, p = lastP, n = lastN;
   const tMin = kv[0], tMax = kv[kv.length-1];
