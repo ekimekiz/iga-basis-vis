@@ -70,8 +70,10 @@ input[type=number] {
 .stat-chip { background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 5px 12px; font-size: 12px; color: var(--text-muted); }
 .stat-chip strong { color: var(--text); font-weight: 600; }
 .legend-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.li { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
-.ls { width: 22px; height: 3px; border-radius: 2px; }
+.li { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.1s; }
+.li:hover { background: var(--bg); }
+.li.faded { opacity: 0.35; }
+.ls { width: 22px; height: 3px; border-radius: 2px; flex-shrink: 0; }
 .chart-wrap { position: relative; width: 100%; height: 300px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: 500; font-size: 12px; border-bottom: 0.5px solid var(--border); }
@@ -81,7 +83,15 @@ tbody tr:last-child td { border-bottom: none; }
 .bc { background: var(--teal-light); color: var(--teal); }
 .bd { background: var(--coral-light); color: var(--coral); }
 .hidden { display: none !important; }
-footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align: center; }
+.ref-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 13px; align-items: baseline; }
+.ref-sym { font-family: 'SF Mono','Fira Code',monospace; font-weight: 600; color: var(--text); }
+.ref-desc { color: var(--text-muted); }
+.ref-check { font-family: 'SF Mono','Fira Code',monospace; font-size: 13px; margin-top: 10px; padding: 8px 12px; background: var(--bg); border-radius: var(--radius-sm); border: 0.5px solid var(--border); }
+footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.8; }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+.action-btn { font-size: 12px; padding: 5px 12px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); background: var(--bg); color: var(--accent); cursor: pointer; }
+.action-btn:hover { background: var(--accent-light); }
 </style>
 </head>
 <body>
@@ -89,7 +99,7 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
 
 <header>
   <h1>IGA B-Spline Basis Function Visualizer</h1>
-  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity.</p>
+  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity. Hover over a basis function in the legend to highlight its support.</p>
 </header>
 
 <div class="card">
@@ -139,7 +149,7 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
   <div id="customPanel" class="hidden">
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Define interior knots (values strictly between 0 and 1)</div>
     <div class="knot-row" id="cKnotRows"></div>
-    <button id="addKnotBtn" style="margin-top:8px;font-size:12px;padding:5px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--bg);color:var(--accent);cursor:pointer;">+ add knot</button>
+    <button id="addKnotBtn" class="action-btn" style="margin-top:8px;">+ add knot</button>
   </div>
 
   <div id="manualPanel" class="hidden">
@@ -165,12 +175,14 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
   <div class="kv-box" id="kvDisplay"></div>
 </div>
 
-<div class="card" id="refPanel">
-  <div class="card-title">B-spline relation</div>
-  <div id="refContent" style="font-size:13px;line-height:1.9;color:var(--text);">
-    <div style="font-family:'SF Mono','Fira Code',monospace;font-size:13px;margin-bottom:8px;">m + 1 = n + p + 1</div>
-    <div id="refValues" style="color:var(--text-muted);font-size:12px;"></div>
+<div class="card">
+  <div class="card-title">B-spline relation &nbsp;<span style="font-family:monospace;font-weight:400;font-size:12px;">m + 1 = n + p + 1</span></div>
+  <div class="ref-grid">
+    <span class="ref-sym">p</span><span class="ref-desc">polynomial degree</span>
+    <span class="ref-sym">m + 1</span><span class="ref-desc">number of knots in Ξ (knot vector length)</span>
+    <span class="ref-sym">n + 1</span><span class="ref-desc">number of basis functions &nbsp;→&nbsp; n + 1 = m + 1 − p</span>
   </div>
+  <div class="ref-check" id="refCheck">Enter a valid knot vector to see values.</div>
 </div>
 
 <div class="card">
@@ -178,17 +190,17 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
   <div class="stats-row" id="statsRow"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
     <div class="legend-row" id="legend"></div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div class="toggle-wrap">
         <label class="tog"><input type="checkbox" id="grevilleToggle" checked><span class="tog-sl"></span></label>
-        <span class="tog-lbl" style="font-size:12px;">Greville abscissae</span>
+        <span class="tog-lbl" style="font-size:12px;">Greville</span>
       </div>
       <div class="toggle-wrap">
         <label class="tog"><input type="checkbox" id="knotLineToggle" checked><span class="tog-sl"></span></label>
         <span class="tog-lbl" style="font-size:12px;">Knot lines</span>
       </div>
-      <button id="exportPng" style="font-size:12px;padding:5px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--bg);color:var(--accent);cursor:pointer;">Export PNG</button>
-      <button id="exportCsv" style="font-size:12px;padding:5px 12px;border:0.5px solid var(--border-mid);border-radius:var(--radius-sm);background:var(--bg);color:var(--accent);cursor:pointer;">Export CSV</button>
+      <button class="action-btn" id="exportPng">Export PNG</button>
+      <button class="action-btn" id="exportCsv">Export CSV</button>
     </div>
   </div>
   <div class="chart-wrap">
@@ -212,7 +224,10 @@ footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align
   </table>
 </div>
 
-<footer>Built with Chart.js &middot; Cox&ndash;de Boor recursion</footer>
+<footer>
+  Built with Chart.js &middot; Cox&ndash;de Boor recursion &middot; Generated with <a href="https://claude.ai">Claude</a><br>
+  <a href="mailto:ekiz@utexas.edu">Ekim Ekiz</a>
+</footer>
 </div>
 
 <script>
@@ -220,6 +235,8 @@ const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#63
 let chart = null;
 let mode = 'uniform';
 let customKnots = [{xi:0.333,mult:1},{xi:0.667,mult:1}];
+let hoveredIdx = null;
+let lastKV = null, lastP = null, lastN = null;
 
 function N(i, p, t, kv) {
   if (p === 0) {
@@ -393,84 +410,41 @@ function renderCustomControls() {
   });
 }
 
-function update() {
-  const {kv, p, errs} = getKV();
-
-  const errEl = document.getElementById('errDisplay');
-  errEl.innerHTML = errs.length ? errs.map(e => `<div>${e}</div>`).join('') : '';
-
-  const kvEl = document.getElementById('kvDisplay');
-  kvEl.textContent = kv ? 'Ξ = [ ' + kv.map(v => parseFloat(v.toFixed(6)).toString()).join('  ') + ' ]' : '';
-
-  // update reference panel
-  const refValues = document.getElementById('refValues');
-  if (kv) {
-    const m = kv.length - 1;
-    const nBasis = kv.length - p - 1;
-    refValues.innerHTML =
-      `<span style="color:var(--text);">p</span> = degree = <strong>${p}</strong><br>` +
-      `<span style="color:var(--text);">m+1</span> = knot vector length = <strong>${m+1}</strong><br>` +
-      `<span style="color:var(--text);">n+1</span> = number of basis functions = m+1 &minus; p = <strong>${Math.max(nBasis,0)}</strong><br>` +
-      `Check: ${m+1} = ${Math.max(nBasis,0)} + ${p} + 1 = <strong>${Math.max(nBasis,0) + p + 1}</strong> ${Math.max(nBasis,0) + p + 1 === m+1 ? '&#10003;' : '&#10007;'}`;
-  } else {
-    refValues.textContent = 'Enter a valid knot vector to see values.';
-  }
-
-  if (errs.length) {
-    if (chart) { chart.destroy(); chart = null; }
-    document.getElementById('legend').innerHTML = '';
-    document.getElementById('statsRow').innerHTML = '';
-    document.getElementById('contBody').innerHTML = '';
-    return;
-  }
-
-  const n = kv.length - p - 2;
-  if (n < 0) return;
-
-  const statsRow = document.getElementById('statsRow');
-  statsRow.innerHTML = '';
-  [{label:'Degree', val:`p = ${p}`},{label:'Basis functions', val:`n+1 = ${n+1}`},{label:'Knot vector length', val:`m+1 = ${kv.length}`},{label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
-    .forEach(c => { const el = document.createElement('div'); el.className = 'stat-chip'; el.innerHTML = `${c.label}: <strong>${c.val}</strong>`; statsRow.appendChild(el); });
-
+function buildAnnotations(kv, p, n, showKnotLines, showGreville, highlightIdx) {
+  const annotations = {};
   const tMin = kv[0], tMax = kv[kv.length-1];
-  const M = 600;
-  const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
 
-  const datasets = [];
-  for (let i = 0; i <= n; i++) {
-    datasets.push({
-      label: `N_{${i+1},${p}}`,
-      data: ts.map(t => ({x:t, y:N(i,p,t,kv)})),
-      borderColor: COLORS[i%COLORS.length],
-      backgroundColor: 'transparent',
-      borderWidth: 2, pointRadius: 0, tension: 0, showLine: true,
+  // all unique knot values including endpoints
+  const uniqueKnots = [...new Set(kv)].sort((a,b) => a-b);
+
+  if (showKnotLines) {
+    uniqueKnots.forEach((xi, idx) => {
+      annotations['kl'+idx] = {
+        type: 'line',
+        xMin: xi, xMax: xi,
+        borderColor: 'rgba(0,0,0,0.35)',
+        borderWidth: 1.5,
+        borderDash: [5, 3],
+      };
     });
   }
 
-  const legend = document.getElementById('legend');
-  legend.innerHTML = '';
-  datasets.forEach((d,i) => {
-    const item = document.createElement('div');
-    item.className = 'li';
-    item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i+1},${p}</sub></span>`;
-    legend.appendChild(item);
-  });
+  // support highlight for hovered basis function
+  if (highlightIdx !== null) {
+    // N_{i,p} has support [kv[i], kv[i+p+1]] (0-based i)
+    const i0 = highlightIdx;
+    const suppMin = kv[i0];
+    const suppMax = kv[i0 + p + 1];
+    annotations['supp'] = {
+      type: 'box',
+      xMin: suppMin, xMax: suppMax,
+      yMin: -0.06, yMax: 1.05,
+      backgroundColor: COLORS[highlightIdx % COLORS.length] + '22',
+      borderColor: COLORS[highlightIdx % COLORS.length] + '88',
+      borderWidth: 1,
+    };
+  }
 
-  const iks = getInteriorKnots(kv);
-  const showGreville = document.getElementById('grevilleToggle').checked;
-
-  const showKnotLines = document.getElementById('knotLineToggle').checked;
-  const annotations = {};
-  iks.forEach(({xi}, idx) => {
-    if (showKnotLines) {
-      annotations['kl'+idx] = {
-        type:'line', xMin:xi, xMax:xi,
-        borderColor: COLORS[idx % COLORS.length],
-        borderWidth: 2,
-        borderDash: [6, 3],
-      };
-    }
-  });
   if (showGreville) {
     for (let i = 0; i <= n; i++) {
       let tau = 0;
@@ -483,6 +457,128 @@ function update() {
       };
     }
   }
+  return annotations;
+}
+
+function update() {
+  const {kv, p, errs} = getKV();
+
+  document.getElementById('errDisplay').innerHTML = errs.length ? errs.map(e => `<div>${e}</div>`).join('') : '';
+  document.getElementById('kvDisplay').textContent = kv ? 'Ξ = [ ' + kv.map(v => parseFloat(v.toFixed(6)).toString()).join('  ') + ' ]' : '';
+
+  // reference panel
+  const refCheck = document.getElementById('refCheck');
+  if (kv) {
+    const m = kv.length - 1;
+    const nBasis = kv.length - p - 1;
+    const valid = (nBasis + p + 1) === (m + 1);
+    refCheck.innerHTML =
+      `p = ${p},&nbsp;&nbsp; m+1 = ${m+1},&nbsp;&nbsp; n+1 = ${Math.max(nBasis,0)}&nbsp;&nbsp;` +
+      `&rarr;&nbsp; ${Math.max(nBasis,0)} + ${p} + 1 = ${Math.max(nBasis,0)+p+1} ` +
+      (valid ? `<span style="color:var(--teal);">&#10003; valid</span>` : `<span style="color:var(--coral);">&#10007; invalid</span>`);
+  } else {
+    refCheck.textContent = 'Enter a valid knot vector to see values.';
+  }
+
+  if (errs.length || !kv) {
+    if (chart) { chart.destroy(); chart = null; }
+    document.getElementById('legend').innerHTML = '';
+    document.getElementById('statsRow').innerHTML = '';
+    document.getElementById('contBody').innerHTML = '';
+    return;
+  }
+
+  const n = kv.length - p - 2;
+  if (n < 0) return;
+  lastKV = kv; lastP = p; lastN = n;
+
+  const statsRow = document.getElementById('statsRow');
+  statsRow.innerHTML = '';
+  [{label:'Degree', val:`p = ${p}`},{label:'Basis functions', val:`n+1 = ${n+1}`},{label:'Knot vector length', val:`m+1 = ${kv.length}`},{label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
+    .forEach(c => { const el = document.createElement('div'); el.className = 'stat-chip'; el.innerHTML = `${c.label}: <strong>${c.val}</strong>`; statsRow.appendChild(el); });
+
+  const tMin = kv[0], tMax = kv[kv.length-1];
+  const M = 600;
+  const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
+
+  const datasets = [];
+  for (let i = 0; i <= n; i++) {
+    const isHovered = hoveredIdx === i;
+    const anyHovered = hoveredIdx !== null;
+    datasets.push({
+      label: `N_{${i+1},${p}}`,
+      data: ts.map(t => ({x:t, y:N(i,p,t,kv)})),
+      borderColor: COLORS[i%COLORS.length],
+      backgroundColor: 'transparent',
+      borderWidth: anyHovered ? (isHovered ? 3 : 1) : 2,
+      pointRadius: 0,
+      tension: 0,
+      showLine: true,
+      opacity: anyHovered && !isHovered ? 0.2 : 1,
+    });
+  }
+
+  // legend
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  datasets.forEach((d,i) => {
+    const item = document.createElement('div');
+    item.className = 'li' + (hoveredIdx !== null && hoveredIdx !== i ? ' faded' : '');
+    item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i+1},${p}</sub></span>`;
+    item.onmouseenter = () => { hoveredIdx = i; renderChart(); };
+    item.onmouseleave = () => { hoveredIdx = null; renderChart(); };
+    legend.appendChild(item);
+  });
+
+  renderChart();
+
+  // continuity table
+  const iks = getInteriorKnots(kv);
+  const tbody = document.getElementById('contBody');
+  tbody.innerHTML = '';
+  if (iks.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:10px;">No interior knots — basis is C<sup>∞</sup> on the interior</td></tr>`;
+    return;
+  }
+  iks.forEach(({xi, mult}, idx) => {
+    const cont = p - mult;
+    const badgeCls = cont >= 0 ? 'bc' : 'bd';
+    const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
+    const {all, active} = spanIndices(xi, kv);
+    const spanStr = all.map(i => i === active ? `<strong>${i}</strong>` : `<span style="color:var(--text-muted)">${i}</span>`).join(', ');
+    const activeFns = Array.from({length:n+1}, (_,i) => i).filter(i => Math.abs(N(i, p, xi, kv)) > 1e-10).map(i => `N<sub>${i+1},${p}</sub>`);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td><span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${activeFns.length} (${activeFns.join(', ')})</td><td>${spanStr}</td>`;
+    tbody.appendChild(tr);
+    const ctag = document.getElementById('uctag_'+idx);
+    if (ctag) ctag.textContent = badgeTxt;
+  });
+}
+
+function renderChart() {
+  if (!lastKV) return;
+  const kv = lastKV, p = lastP, n = lastN;
+  const tMin = kv[0], tMax = kv[kv.length-1];
+  const M = 600;
+  const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
+  const anyHovered = hoveredIdx !== null;
+
+  const datasets = [];
+  for (let i = 0; i <= n; i++) {
+    const isHovered = hoveredIdx === i;
+    datasets.push({
+      label: `N_{${i+1},${p}}`,
+      data: ts.map(t => ({x:t, y:N(i,p,t,kv)})),
+      borderColor: anyHovered && !isHovered ? COLORS[i%COLORS.length]+'55' : COLORS[i%COLORS.length],
+      backgroundColor: 'transparent',
+      borderWidth: anyHovered ? (isHovered ? 3 : 1) : 2,
+      pointRadius: 0, tension: 0, showLine: true,
+    });
+  }
+
+  const showKnotLines = document.getElementById('knotLineToggle').checked;
+  const showGreville  = document.getElementById('grevilleToggle').checked;
+  const annotations   = buildAnnotations(kv, p, n, showKnotLines, showGreville, hoveredIdx);
 
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById('basisChart'), {
@@ -500,29 +596,6 @@ function update() {
         y: { min:-0.06, max:1.05, title:{display:true, text:'N_{i,p}(ξ)', color:'#6b6b67', font:{size:13}}, grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#6b6b67', font:{size:11}} }
       }
     }
-  });
-
-  const tbody = document.getElementById('contBody');
-  tbody.innerHTML = '';
-  if (iks.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:10px;">No interior knots — basis is C<sup>∞</sup> on the interior</td></tr>`;
-    return;
-  }
-  iks.forEach(({xi, mult}, idx) => {
-    const cont = p - mult;
-    const badgeCls = cont >= 0 ? 'bc' : 'bd';
-    const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
-    const {all, active} = spanIndices(xi, kv);
-    const spanStr = all.map(i => i === active ? `<strong>${i}</strong>` : `<span style="color:var(--text-muted)">${i}</span>`).join(', ');
-    const activeFns = Array.from({length:n+1}, (_,i) => i).filter(i => {
-      const val = N(i, p, xi, kv);
-      return Math.abs(val) > 1e-10;
-    }).map(i => i+1);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td><span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${activeFns.length} (${activeFns.map(i => `N<sub>${i},${p}</sub>`).join(', ')})</td><td>${spanStr}</td>`;
-    tbody.appendChild(tr);
-    const ctag = document.getElementById('uctag_'+idx);
-    if (ctag) ctag.textContent = badgeTxt;
   });
 }
 
@@ -546,35 +619,31 @@ document.getElementById('openToggle').onchange = update;
 document.getElementById('openToggleManual').onchange = update;
 document.getElementById('nInt').onchange = () => { renderUniformControls(); update(); };
 document.getElementById('manualInput').oninput = update;
-document.getElementById('grevilleToggle').onchange = update;
-document.getElementById('knotLineToggle').onchange = update;
+document.getElementById('grevilleToggle').onchange = renderChart;
+document.getElementById('knotLineToggle').onchange = renderChart;
 
 document.getElementById('exportPng').onclick = () => {
-  const canvas = document.getElementById('basisChart');
   const link = document.createElement('a');
   link.download = 'basis_functions.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = document.getElementById('basisChart').toDataURL('image/png');
   link.click();
 };
 
 document.getElementById('exportCsv').onclick = () => {
-  const {kv, p, errs} = getKV();
-  if (errs.length || !kv) return;
-  const n = kv.length - p - 2;
+  if (!lastKV) return;
+  const kv = lastKV, p = lastP, n = lastN;
   const tMin = kv[0], tMax = kv[kv.length-1];
   const M = 500;
   const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
   const header = ['xi', ...Array.from({length:n+1}, (_,i) => `N_${i+1}_${p}`)].join(',');
-  const rows = ts.map(t => {
-    const vals = Array.from({length:n+1}, (_,i) => N(i, p, t, kv).toFixed(8));
-    return [t.toFixed(6), ...vals].join(',');
-  });
+  const rows = ts.map(t => [t.toFixed(6), ...Array.from({length:n+1}, (_,i) => N(i,p,t,kv).toFixed(8))].join(','));
   const blob = new Blob([[header, ...rows].join('\n')], {type:'text/csv'});
   const link = document.createElement('a');
   link.download = 'basis_functions.csv';
   link.href = URL.createObjectURL(blob);
   link.click();
 };
+
 document.getElementById('addKnotBtn').onclick = () => {
   const last = customKnots.length ? customKnots[customKnots.length-1].xi : 0;
   customKnots.push({xi: parseFloat(Math.min(last+0.2, 0.9).toFixed(3)), mult:1});
