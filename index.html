@@ -70,9 +70,7 @@ input[type=number] {
 .stat-chip { background: var(--bg); border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 5px 12px; font-size: 12px; color: var(--text-muted); }
 .stat-chip strong { color: var(--text); font-weight: 600; }
 .legend-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.li { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.1s; }
-.li:hover { background: var(--bg); }
-.li.faded { opacity: 0.35; }
+.li { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
 .ls { width: 22px; height: 3px; border-radius: 2px; flex-shrink: 0; }
 .chart-wrap { position: relative; width: 100%; height: 300px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -87,11 +85,11 @@ tbody tr:last-child td { border-bottom: none; }
 .ref-sym { font-family: 'SF Mono','Fira Code',monospace; font-weight: 600; color: var(--text); }
 .ref-desc { color: var(--text-muted); }
 .ref-check { font-family: 'SF Mono','Fira Code',monospace; font-size: 13px; margin-top: 10px; padding: 8px 12px; background: var(--bg); border-radius: var(--radius-sm); border: 0.5px solid var(--border); }
+.action-btn { font-size: 12px; padding: 5px 12px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); background: var(--bg); color: var(--accent); cursor: pointer; }
+.action-btn:hover { background: var(--accent-light); }
 footer { margin-top: 2rem; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.8; }
 footer a { color: var(--accent); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
-.action-btn { font-size: 12px; padding: 5px 12px; border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); background: var(--bg); color: var(--accent); cursor: pointer; }
-.action-btn:hover { background: var(--accent-light); }
 </style>
 </head>
 <body>
@@ -99,7 +97,7 @@ footer a:hover { text-decoration: underline; }
 
 <header>
   <h1>IGA B-Spline Basis Function Visualizer</h1>
-  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity. Hover over a basis function in the legend to highlight its support.</p>
+  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity.</p>
 </header>
 
 <div class="card">
@@ -235,8 +233,6 @@ const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#63
 let chart = null;
 let mode = 'uniform';
 let customKnots = [{xi:0.333,mult:1},{xi:0.667,mult:1}];
-let hoveredIdx = null;
-let lastKV = null, lastP = null, lastN = null;
 
 function N(i, p, t, kv) {
   if (p === 0) {
@@ -410,63 +406,12 @@ function renderCustomControls() {
   });
 }
 
-function buildAnnotations(kv, p, n, showKnotLines, showGreville, highlightIdx) {
-  const annotations = {};
-  const tMin = kv[0], tMax = kv[kv.length-1];
-
-  // all unique knot values excluding endpoints
-  const uniqueKnots = [...new Set(kv)].sort((a,b) => a-b).filter(v => v > kv[0] && v < kv[kv.length-1]);
-
-  if (showKnotLines) {
-    uniqueKnots.forEach((xi, idx) => {
-      annotations['kl'+idx] = {
-        type: 'line',
-        xMin: xi, xMax: xi,
-        borderColor: 'rgba(0,0,0,0.35)',
-        borderWidth: 1.5,
-        borderDash: [5, 3],
-      };
-    });
-  }
-
-  // support highlight for hovered basis function
-  if (highlightIdx !== null) {
-    // N_{i,p} has support [kv[i], kv[i+p+1]] (0-based i)
-    const i0 = highlightIdx;
-    const suppMin = kv[i0];
-    const suppMax = kv[i0 + p + 1];
-    annotations['supp'] = {
-      type: 'box',
-      xMin: suppMin, xMax: suppMax,
-      yMin: -0.06, yMax: 1.05,
-      backgroundColor: COLORS[highlightIdx % COLORS.length] + '22',
-      borderColor: COLORS[highlightIdx % COLORS.length] + '88',
-      borderWidth: 1,
-    };
-  }
-
-  if (showGreville) {
-    for (let i = 0; i <= n; i++) {
-      let tau = 0;
-      for (let j = 1; j <= p; j++) tau += kv[i+j];
-      tau /= p;
-      annotations['gr'+i] = {
-        type: 'point', xValue: tau, yValue: 0,
-        backgroundColor: COLORS[i%COLORS.length],
-        borderColor: '#fff', borderWidth: 1.5, radius: 5,
-      };
-    }
-  }
-  return annotations;
-}
-
 function update() {
   const {kv, p, errs} = getKV();
 
   document.getElementById('errDisplay').innerHTML = errs.length ? errs.map(e => `<div>${e}</div>`).join('') : '';
   document.getElementById('kvDisplay').textContent = kv ? 'Ξ = [ ' + kv.map(v => parseFloat(v.toFixed(6)).toString()).join('  ') + ' ]' : '';
 
-  // reference panel
   const refCheck = document.getElementById('refCheck');
   if (kv) {
     const m = kv.length - 1;
@@ -490,7 +435,6 @@ function update() {
 
   const n = kv.length - p - 2;
   if (n < 0) return;
-  lastKV = kv; lastP = p; lastN = n;
 
   const statsRow = document.getElementById('statsRow');
   statsRow.innerHTML = '';
@@ -503,37 +447,69 @@ function update() {
 
   const datasets = [];
   for (let i = 0; i <= n; i++) {
-    const isHovered = hoveredIdx === i;
-    const anyHovered = hoveredIdx !== null;
     datasets.push({
       label: `N_{${i+1},${p}}`,
       data: ts.map(t => ({x:t, y:N(i,p,t,kv)})),
       borderColor: COLORS[i%COLORS.length],
       backgroundColor: 'transparent',
-      borderWidth: anyHovered ? (isHovered ? 3 : 1) : 2,
-      pointRadius: 0,
-      tension: 0,
-      showLine: true,
-      opacity: anyHovered && !isHovered ? 0.2 : 1,
+      borderWidth: 2, pointRadius: 0, tension: 0, showLine: true,
     });
   }
 
-  // legend — build once, don't rebuild on hover
   const legend = document.getElementById('legend');
   legend.innerHTML = '';
-  for (let i = 0; i <= n; i++) {
+  datasets.forEach((d,i) => {
     const item = document.createElement('div');
     item.className = 'li';
-    item.dataset.idx = i;
     item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i+1},${p}</sub></span>`;
-    item.onmouseenter = () => { hoveredIdx = parseInt(item.dataset.idx); renderChart(); updateLegendFade(); };
-    item.onmouseleave = () => { hoveredIdx = null; renderChart(); updateLegendFade(); };
     legend.appendChild(item);
+  });
+
+  const showKnotLines = document.getElementById('knotLineToggle').checked;
+  const showGreville  = document.getElementById('grevilleToggle').checked;
+  const annotations   = {};
+
+  if (showKnotLines) {
+    const uniqueInner = [...new Set(kv)].sort((a,b)=>a-b).filter(v => v > kv[0] && v < kv[kv.length-1]);
+    uniqueInner.forEach((xi, idx) => {
+      annotations['kl'+idx] = {
+        type: 'line', xMin: xi, xMax: xi,
+        borderColor: 'rgba(0,0,0,0.35)', borderWidth: 1.5, borderDash: [5,3],
+      };
+    });
   }
 
-  renderChart();
+  if (showGreville) {
+    for (let i = 0; i <= n; i++) {
+      let tau = 0;
+      for (let j = 1; j <= p; j++) tau += kv[i+j];
+      tau /= p;
+      annotations['gr'+i] = {
+        type: 'point', xValue: tau, yValue: 0,
+        backgroundColor: COLORS[i%COLORS.length],
+        borderColor: '#fff', borderWidth: 1.5, radius: 5,
+      };
+    }
+  }
 
-  // continuity table
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('basisChart'), {
+    type: 'scatter',
+    data: {datasets},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {callbacks: {label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}`}},
+        annotation: {annotations},
+      },
+      scales: {
+        x: { type:'linear', min:tMin, max:tMax, title:{display:true, text:'ξ', color:'#6b6b67', font:{size:13}}, grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#6b6b67', font:{size:11}, maxTicksLimit:11} },
+        y: { min:-0.06, max:1.05, title:{display:true, text:'N_{i,p}(ξ)', color:'#6b6b67', font:{size:13}}, grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#6b6b67', font:{size:11}} }
+      }
+    }
+  });
+
   const iks = getInteriorKnots(kv);
   const tbody = document.getElementById('contBody');
   tbody.innerHTML = '';
@@ -553,56 +529,6 @@ function update() {
     tbody.appendChild(tr);
     const ctag = document.getElementById('uctag_'+idx);
     if (ctag) ctag.textContent = badgeTxt;
-  });
-}
-
-function updateLegendFade() {
-  document.querySelectorAll('#legend .li').forEach(item => {
-    const i = parseInt(item.dataset.idx);
-    item.classList.toggle('faded', hoveredIdx !== null && hoveredIdx !== i);
-  });
-}
-
-  if (!lastKV) return;
-  const kv = lastKV, p = lastP, n = lastN;
-  const tMin = kv[0], tMax = kv[kv.length-1];
-  const M = 600;
-  const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
-  const anyHovered = hoveredIdx !== null;
-
-  const datasets = [];
-  for (let i = 0; i <= n; i++) {
-    const isHovered = hoveredIdx === i;
-    datasets.push({
-      label: `N_{${i+1},${p}}`,
-      data: ts.map(t => ({x:t, y:N(i,p,t,kv)})),
-      borderColor: anyHovered && !isHovered ? COLORS[i%COLORS.length]+'55' : COLORS[i%COLORS.length],
-      backgroundColor: 'transparent',
-      borderWidth: anyHovered ? (isHovered ? 3 : 1) : 2,
-      pointRadius: 0, tension: 0, showLine: true,
-    });
-  }
-
-  const showKnotLines = document.getElementById('knotLineToggle').checked;
-  const showGreville  = document.getElementById('grevilleToggle').checked;
-  const annotations   = buildAnnotations(kv, p, n, showKnotLines, showGreville, hoveredIdx);
-
-  if (chart) chart.destroy();
-  chart = new Chart(document.getElementById('basisChart'), {
-    type: 'scatter',
-    data: {datasets},
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: {
-        legend: {display: false},
-        tooltip: {callbacks: {label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}`}},
-        annotation: {annotations},
-      },
-      scales: {
-        x: { type:'linear', min:tMin, max:tMax, title:{display:true, text:'ξ', color:'#6b6b67', font:{size:13}}, grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#6b6b67', font:{size:11}, maxTicksLimit:11} },
-        y: { min:-0.06, max:1.05, title:{display:true, text:'N_{i,p}(ξ)', color:'#6b6b67', font:{size:13}}, grid:{color:'rgba(0,0,0,0.06)'}, ticks:{color:'#6b6b67', font:{size:11}} }
-      }
-    }
   });
 }
 
@@ -626,8 +552,8 @@ document.getElementById('openToggle').onchange = update;
 document.getElementById('openToggleManual').onchange = update;
 document.getElementById('nInt').onchange = () => { renderUniformControls(); update(); };
 document.getElementById('manualInput').oninput = update;
-document.getElementById('grevilleToggle').onchange = renderChart;
-document.getElementById('knotLineToggle').onchange = renderChart;
+document.getElementById('grevilleToggle').onchange = update;
+document.getElementById('knotLineToggle').onchange = update;
 
 document.getElementById('exportPng').onclick = () => {
   const link = document.createElement('a');
@@ -637,8 +563,9 @@ document.getElementById('exportPng').onclick = () => {
 };
 
 document.getElementById('exportCsv').onclick = () => {
-  if (!lastKV) return;
-  const kv = lastKV, p = lastP, n = lastN;
+  const {kv, p, errs} = getKV();
+  if (errs.length || !kv) return;
+  const n = kv.length - p - 2;
   const tMin = kv[0], tMax = kv[kv.length-1];
   const M = 500;
   const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
