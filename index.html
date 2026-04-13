@@ -40,11 +40,6 @@ input[type=text] {
   border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); color: var(--text);
 }
 input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-input[type=number] {
-  width: 58px; padding: 4px 6px; font-size: 12px;
-  background: var(--surface); border: 0.5px solid var(--border-mid);
-  border-radius: var(--radius-sm); color: var(--text);
-}
 .seg { display: inline-flex; border: 0.5px solid var(--border-mid); border-radius: var(--radius-sm); overflow: hidden; }
 .seg button { border: none; background: transparent; color: var(--text-muted); font-size: 12px; padding: 6px 13px; cursor: pointer; transition: background 0.1s, color 0.1s; white-space: nowrap; }
 .seg button.active { background: var(--accent); color: #fff; }
@@ -75,7 +70,7 @@ input[type=number] {
 .chart-wrap { position: relative; width: 100%; height: 300px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: 500; font-size: 12px; border-bottom: 0.5px solid var(--border); }
-tbody td { padding: 7px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); }
+tbody td { padding: 7px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: top; }
 tbody tr:last-child td { border-bottom: none; }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
 .bc { background: var(--teal-light); color: var(--teal); }
@@ -97,7 +92,7 @@ footer a:hover { text-decoration: underline; }
 
 <header>
   <h1>IGA B-Spline Basis Function Visualizer</h1>
-  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and interior knot multiplicities to explore continuity.</p>
+  <p>Plots N<sub>i,p</sub>(ξ) via Cox&ndash;de Boor recursion. Adjust degree, knot vector type, and multiplicities to explore continuity.</p>
 </header>
 
 <div class="card">
@@ -106,8 +101,7 @@ footer a:hover { text-decoration: underline; }
     <label>Mode</label>
     <div class="seg" id="modeSeg">
       <button class="active" data-m="uniform">Uniform</button>
-      <button data-m="custom">Custom knots</button>
-      <button data-m="manual">Full manual</button>
+      <button data-m="manual">Manual</button>
     </div>
   </div>
 
@@ -144,12 +138,6 @@ footer a:hover { text-decoration: underline; }
     </div>
   </div>
 
-  <div id="customPanel" class="hidden">
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Define interior knots (values strictly between 0 and 1)</div>
-    <div class="knot-row" id="cKnotRows"></div>
-    <button id="addKnotBtn" class="action-btn" style="margin-top:8px;">+ add knot</button>
-  </div>
-
   <div id="manualPanel" class="hidden">
     <div class="row" style="margin-bottom:10px;">
       <label>Degree p</label>
@@ -174,11 +162,11 @@ footer a:hover { text-decoration: underline; }
 </div>
 
 <div class="card">
-  <div class="card-title">B-spline relation &nbsp;<span style="font-family:monospace;font-weight:400;font-size:12px;">m + 1 = n + p + 1</span></div>
+  <div class="card-title">B-spline relation &nbsp;<span style="font-family:monospace;font-weight:400;font-size:12px;">knot vector length = n + p + 1</span></div>
   <div class="ref-grid">
     <span class="ref-sym">p</span><span class="ref-desc">polynomial degree</span>
-    <span class="ref-sym">m + 1</span><span class="ref-desc">number of knots in Ξ (knot vector length)</span>
-    <span class="ref-sym">n + 1</span><span class="ref-desc">number of basis functions &nbsp;→&nbsp; n + 1 = m + 1 − p</span>
+    <span class="ref-sym">n</span><span class="ref-desc">number of basis functions</span>
+    <span class="ref-sym">n + p + 1</span><span class="ref-desc">required knot vector length</span>
   </div>
   <div class="ref-check" id="refCheck">Enter a valid knot vector to see values.</div>
 </div>
@@ -207,7 +195,7 @@ footer a:hover { text-decoration: underline; }
 </div>
 
 <div class="card">
-  <div class="card-title">Continuity at interior knots</div>
+  <div class="card-title">Continuity at all knots</div>
   <table>
     <thead>
       <tr>
@@ -232,7 +220,6 @@ footer a:hover { text-decoration: underline; }
 const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#639922','#E24B4A','#0F6E56','#633806','#D4537E','#888780'];
 let chart = null;
 let mode = 'uniform';
-let customKnots = [{xi:0.333,mult:1},{xi:0.667,mult:1}];
 
 function N(i, p, t, kv) {
   if (p === 0) {
@@ -244,6 +231,19 @@ function N(i, p, t, kv) {
   if (d1 > 1e-14) L = (t - kv[i]) / d1 * N(i, p-1, t, kv);
   if (d2 > 1e-14) R = (kv[i+p+1] - t) / d2 * N(i+1, p-1, t, kv);
   return L + R;
+}
+
+// N_{i,p} (0-based i) has support [kv[i], kv[i+p+1]]
+function activeBasisAtKnot(xi, p, kv) {
+  const n = kv.length - p - 2;
+  const eps = 1e-10;
+  const active = [];
+  for (let i = 0; i <= n; i++) {
+    if (kv[i] <= xi + eps && xi <= kv[i+p+1] + eps) {
+      active.push(i+1); // 1-based label
+    }
+  }
+  return active;
 }
 
 function getP() { return parseInt(document.getElementById('deg').value); }
@@ -273,18 +273,6 @@ function buildKV_uniform() {
   return buildFromIKS(p, open, iks);
 }
 
-function buildKV_custom() {
-  const p = getP(), open = isOpen();
-  const iks = customKnots.map((k,j) => {
-    const xiEl = document.getElementById('cxi_'+j);
-    const multEl = document.getElementById('cm_'+j);
-    const xi = xiEl ? parseFloat(xiEl.value) : k.xi;
-    const mult = multEl ? Math.min(parseInt(multEl.textContent), p) : k.mult;
-    return {xi: isNaN(xi) ? k.xi : xi, mult};
-  }).filter(k => k.xi > 0 && k.xi < 1).sort((a,b) => a.xi - b.xi);
-  return buildFromIKS(p, open, iks);
-}
-
 function buildKV_manual() {
   const raw = document.getElementById('manualInput').value.trim();
   if (!raw) return null;
@@ -302,13 +290,10 @@ function buildKV_manual() {
   return kv;
 }
 
-function getInteriorKnots(kv) {
-  const first = kv[0], last = kv[kv.length-1];
+// get ALL unique knots with their multiplicities (including endpoints)
+function getAllKnots(kv) {
   const seen = new Map();
-  for (const v of kv) {
-    if (v === first || v === last) continue;
-    seen.set(v, (seen.get(v)||0) + 1);
-  }
+  for (const v of kv) seen.set(v, (seen.get(v)||0) + 1);
   return Array.from(seen.entries()).map(([xi,mult]) => ({xi,mult})).sort((a,b) => a.xi-b.xi);
 }
 
@@ -316,7 +301,7 @@ function validateKV(kv, p) {
   if (!kv) return ['Could not parse knot vector.'];
   const errs = [];
   if (kv.length < 2*(p+1)) {
-    errs.push(`Knot vector too short: m+1 = n+p+1 requires at least ${2*(p+1)} entries for p = ${p} (minimum n+1 = ${p+1} basis functions), got ${kv.length}.`);
+    errs.push(`Knot vector too short: knot vector length = n+p+1 requires at least ${2*(p+1)} entries for p = ${p} (minimum n = ${p+1} basis functions), got ${kv.length}.`);
     return errs;
   }
   for (let i = 1; i < kv.length; i++)
@@ -328,14 +313,14 @@ function validateKV(kv, p) {
     if (startMult !== p+1) errs.push(`Open vector requires start multiplicity p+1 = ${p+1}, got ${startMult}.`);
     if (endMult !== p+1) errs.push(`Open vector requires end multiplicity p+1 = ${p+1}, got ${endMult}.`);
   }
-  for (const {xi, mult} of getInteriorKnots(kv))
+  const iks = getAllKnots(kv).filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]);
+  for (const {xi, mult} of iks)
     if (mult > p) errs.push(`Interior knot ξ = ${xi.toFixed(4)} has multiplicity ${mult} > p = ${p}.`);
   return errs;
 }
 
 function getKV() {
   if (mode === 'uniform') { const kv = buildKV_uniform(); return {kv, p: getP(), errs: validateKV(kv, getP())}; }
-  if (mode === 'custom')  { const kv = buildKV_custom();  return {kv, p: getP(), errs: validateKV(kv, getP())}; }
   const kv = buildKV_manual();
   const p = getPManual();
   if (!kv) return {kv: null, p, errs: ['Could not parse knot vector — check input.']};
@@ -381,31 +366,6 @@ function renderUniformControls() {
   }
 }
 
-function renderCustomControls() {
-  const p = getP();
-  const container = document.getElementById('cKnotRows');
-  container.innerHTML = '';
-  customKnots.forEach((k, j) => {
-    const cur = Math.min(k.mult, p);
-    const wrap = document.createElement('div');
-    wrap.className = 'ktag';
-    wrap.innerHTML = `<span style="font-size:12px;color:var(--text-muted);">ξ =</span>
-      <input type="number" id="cxi_${j}" value="${k.xi.toFixed(4)}" min="0.0001" max="0.9999" step="0.0001" style="width:72px;">
-      <span style="font-size:12px;color:var(--text-muted);">mult</span>
-      <div class="mc">
-        <button id="cdec_${j}">−</button>
-        <span class="mv" id="cm_${j}">${cur}</span>
-        <button id="cinc_${j}">+</button>
-      </div>
-      <button id="crm_${j}" style="border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:15px;padding:0 2px;">×</button>`;
-    container.appendChild(wrap);
-    document.getElementById('cxi_'+j).onchange = () => { customKnots[j].xi = parseFloat(document.getElementById('cxi_'+j).value)||k.xi; update(); };
-    document.getElementById('cdec_'+j).onclick = () => { const v = parseInt(document.getElementById('cm_'+j).textContent); if (v > 1) { customKnots[j].mult = v-1; document.getElementById('cm_'+j).textContent = v-1; update(); } };
-    document.getElementById('cinc_'+j).onclick = () => { const v = parseInt(document.getElementById('cm_'+j).textContent); if (v < getP()) { customKnots[j].mult = v+1; document.getElementById('cm_'+j).textContent = v+1; update(); } };
-    document.getElementById('crm_'+j).onclick = () => { customKnots.splice(j,1); renderCustomControls(); update(); };
-  });
-}
-
 function update() {
   const {kv, p, errs} = getKV();
 
@@ -414,12 +374,12 @@ function update() {
 
   const refCheck = document.getElementById('refCheck');
   if (kv) {
-    const m = kv.length - 1;
-    const nBasis = kv.length - p - 1;
-    const valid = (nBasis + p + 1) === (m + 1);
+    const n = kv.length - p - 1;
+    const required = n + p + 1;
+    const valid = required === kv.length;
     refCheck.innerHTML =
-      `p = ${p},&nbsp;&nbsp; m+1 = ${m+1},&nbsp;&nbsp; n+1 = ${Math.max(nBasis,0)}&nbsp;&nbsp;` +
-      `&rarr;&nbsp; ${Math.max(nBasis,0)} + ${p} + 1 = ${Math.max(nBasis,0)+p+1} ` +
+      `n = ${n},&nbsp;&nbsp; p = ${p},&nbsp;&nbsp; knot vector length = ${kv.length}&nbsp;&nbsp;` +
+      `&rarr;&nbsp; n + p + 1 = ${n} + ${p} + 1 = ${required} ` +
       (valid ? `<span style="color:var(--teal);">&#10003; valid</span>` : `<span style="color:var(--coral);">&#10007; invalid</span>`);
   } else {
     refCheck.textContent = 'Enter a valid knot vector to see values.';
@@ -438,7 +398,7 @@ function update() {
 
   const statsRow = document.getElementById('statsRow');
   statsRow.innerHTML = '';
-  [{label:'Degree', val:`p = ${p}`},{label:'Basis functions', val:`n+1 = ${n+1}`},{label:'Knot vector length', val:`m+1 = ${kv.length}`},{label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
+  [{label:'Degree', val:`p = ${p}`},{label:'Basis functions', val:`n = ${n+1}`},{label:'Knot vector length', val:`${kv.length}`},{label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
     .forEach(c => { const el = document.createElement('div'); el.className = 'stat-chip'; el.innerHTML = `${c.label}: <strong>${c.val}</strong>`; statsRow.appendChild(el); });
 
   const tMin = kv[0], tMax = kv[kv.length-1];
@@ -510,25 +470,36 @@ function update() {
     }
   });
 
-  const iks = getInteriorKnots(kv);
+  // continuity table — ALL knots including endpoints
+  const allKnots = getAllKnots(kv);
   const tbody = document.getElementById('contBody');
   tbody.innerHTML = '';
-  if (iks.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--text-muted);padding:10px;">No interior knots — basis is C<sup>∞</sup> on the interior</td></tr>`;
-    return;
-  }
-  iks.forEach(({xi, mult}, idx) => {
+  allKnots.forEach(({xi, mult}) => {
+    const isEndpoint = (xi === kv[0] || xi === kv[kv.length-1]);
     const cont = p - mult;
-    const badgeCls = cont >= 0 ? 'bc' : 'bd';
+    let contLabel, badgeCls;
+    if (isEndpoint) {
+      contLabel = mult === p+1 ? `interpolates endpoint` : `C<sup>${cont}</sup>`;
+      badgeCls = 'bc';
+    } else {
+      contLabel = cont >= 0 ? `C<sup>${cont}</sup>` : 'discontinuous';
+      badgeCls = cont >= 0 ? 'bc' : 'bd';
+    }
     const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
     const {all, active} = spanIndices(xi, kv);
     const spanStr = all.map(i => i === active ? `<strong>${i}</strong>` : `<span style="color:var(--text-muted)">${i}</span>`).join(', ');
-    const activeFns = Array.from({length:n+1}, (_,i) => i).filter(i => Math.abs(N(i, p, xi, kv)) > 1e-10).map(i => `N<sub>${i+1},${p}</sub>`);
+    const activeFns = activeBasisAtKnot(xi, p, kv);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>ξ = ${xi.toFixed(4)}</td><td>${mult}</td><td><span class="badge ${badgeCls}">${badgeTxt}</span></td><td>${activeFns.length} (${activeFns.join(', ')})</td><td>${spanStr}</td>`;
+    tr.innerHTML = `<td>ξ = ${parseFloat(xi.toFixed(6))}</td><td>${mult}</td><td>${contLabel}${!isEndpoint ? `&nbsp;<span class="badge ${badgeCls}">${badgeTxt}</span>` : ''}</td><td>${activeFns.length} (${activeFns.map(i => `N<sub>${i},${p}</sub>`).join(', ')})</td><td>${spanStr}</td>`;
     tbody.appendChild(tr);
+  });
+
+  // update uniform multiplicity tags
+  const iks = allKnots.filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]);
+  iks.forEach(({xi, mult}, idx) => {
+    const cont = p - mult;
     const ctag = document.getElementById('uctag_'+idx);
-    if (ctag) ctag.textContent = badgeTxt;
+    if (ctag) ctag.textContent = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
   });
 }
 
@@ -538,15 +509,13 @@ document.getElementById('modeSeg').querySelectorAll('button').forEach(btn => {
     document.getElementById('modeSeg').querySelectorAll('button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('uniformPanel').classList.toggle('hidden', mode !== 'uniform');
-    document.getElementById('customPanel').classList.toggle('hidden', mode !== 'custom');
     document.getElementById('manualPanel').classList.toggle('hidden', mode !== 'manual');
     document.getElementById('pRow').classList.toggle('hidden', mode === 'manual');
-    renderCustomControls();
     update();
   };
 });
 
-document.getElementById('deg').onchange = () => { renderUniformControls(); renderCustomControls(); update(); };
+document.getElementById('deg').onchange = () => { renderUniformControls(); update(); };
 document.getElementById('degManual').onchange = update;
 document.getElementById('openToggle').onchange = update;
 document.getElementById('openToggleManual').onchange = update;
@@ -578,14 +547,7 @@ document.getElementById('exportCsv').onclick = () => {
   link.click();
 };
 
-document.getElementById('addKnotBtn').onclick = () => {
-  const last = customKnots.length ? customKnots[customKnots.length-1].xi : 0;
-  customKnots.push({xi: parseFloat(Math.min(last+0.2, 0.9).toFixed(3)), mult:1});
-  renderCustomControls(); update();
-};
-
 renderUniformControls();
-renderCustomControls();
 update();
 </script>
 </body>
