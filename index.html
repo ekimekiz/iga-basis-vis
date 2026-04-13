@@ -72,9 +72,7 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 thead th { text-align: left; padding: 6px 10px; color: var(--text-muted); font-weight: 500; font-size: 12px; border-bottom: 0.5px solid var(--border); }
 tbody td { padding: 7px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: top; }
 tbody tr:last-child td { border-bottom: none; }
-.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
 .bc { background: var(--teal-light); color: var(--teal); }
-.bd { background: var(--coral-light); color: var(--coral); }
 .hidden { display: none !important; }
 .ref-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 13px; align-items: baseline; }
 .ref-sym { font-family: 'SF Mono','Fira Code',monospace; font-weight: 600; color: var(--text); }
@@ -132,7 +130,7 @@ footer a:hover { text-decoration: underline; }
         <option value="5">5</option>
       </select>
     </div>
-    <div id="uMultSection">
+    <div id="uMultSection" style="display:none;">
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Interior knot multiplicities</div>
       <div class="knot-row" id="uMultControls"></div>
     </div>
@@ -153,7 +151,7 @@ footer a:hover { text-decoration: underline; }
         <span class="tog-lbl">Open / clamped</span>
       </div>
     </div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Enter knot vector (space or comma separated, non-decreasing). If open/clamped is on, end multiplicities are enforced automatically.</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Enter knot vector (space or comma separated, non-decreasing). Open/clamped enforces end multiplicities automatically.</div>
     <input type="text" id="manualInput" placeholder="e.g.  0 0 0 0.5 1 1 1" />
   </div>
 
@@ -221,37 +219,20 @@ const COLORS = ['#378ADD','#1D9E75','#D85A30','#BA7517','#993356','#534AB7','#63
 let chart = null;
 let mode = 'uniform';
 
-function N(i, p, t, kv) {
+function bspline(i, p, t, kv) {
   if (p === 0) {
-    const last = i === kv.length - 2;
-    return (t >= kv[i] && (last ? t <= kv[i+1] : t < kv[i+1])) ? 1 : 0;
+    const atEnd = Math.abs(t - kv[kv.length-1]) < 1e-14;
+    if (atEnd) return (kv[i] < kv[kv.length-1] && i === kv.length-2) ? 1 : 0;
+    return (t >= kv[i] && t < kv[i+1]) ? 1 : 0;
   }
   let L = 0, R = 0;
   const d1 = kv[i+p] - kv[i], d2 = kv[i+p+1] - kv[i+1];
-  if (d1 > 1e-14) L = (t - kv[i]) / d1 * N(i, p-1, t, kv);
-  if (d2 > 1e-14) R = (kv[i+p+1] - t) / d2 * N(i+1, p-1, t, kv);
+  if (d1 > 1e-14) L = (t - kv[i]) / d1 * bspline(i, p-1, t, kv);
+  if (d2 > 1e-14) R = (kv[i+p+1] - t) / d2 * bspline(i+1, p-1, t, kv);
   return L + R;
 }
 
-// N_{i,p} (0-based i) has support [kv[i], kv[i+p+1]]
-function activeBasisAtKnot(xi, p, kv) {
-  const n = kv.length - p - 2;
-  const eps = 1e-10;
-  const active = [];
-  for (let i = 0; i <= n; i++) {
-    if (kv[i] <= xi + eps && xi <= kv[i+p+1] + eps) {
-      active.push(i+1); // 1-based label
-    }
-  }
-  return active;
-}
-
-function evalBasis(i, p, t, kv) {
-  const tMax = kv[kv.length-1];
-  const lastIdx = kv.length - p - 2;
-  if (t >= tMax) return (i === lastIdx) ? N(i, p, tMax, kv) : 0;
-  return N(i, p, t, kv);
-} return parseInt(document.getElementById('deg').value); }
+function getP() { return parseInt(document.getElementById('deg').value); }
 function getPManual() { return parseInt(document.getElementById('degManual').value); }
 function isOpen() { return document.getElementById('openToggle').checked; }
 function isOpenManual() { return document.getElementById('openToggleManual').checked; }
@@ -295,11 +276,28 @@ function buildKV_manual() {
   return kv;
 }
 
-// get ALL unique knots with their multiplicities (including endpoints)
 function getAllKnots(kv) {
   const seen = new Map();
-  for (const v of kv) seen.set(v, (seen.get(v)||0) + 1);
+  for (const v of kv) seen.set(v, (seen.get(v)||0)+1);
   return Array.from(seen.entries()).map(([xi,mult]) => ({xi,mult})).sort((a,b) => a.xi-b.xi);
+}
+
+function activeBasisAtKnot(xi, p, kv) {
+  const n = kv.length - p - 2;
+  const eps = 1e-10;
+  const active = [];
+  for (let i = 0; i <= n; i++) {
+    if (kv[i] <= xi + eps && xi <= kv[i+p+1] + eps) active.push(i+1);
+  }
+  return active;
+}
+
+function spanIndices(xi, kv) {
+  const all = [], eps = 1e-10;
+  for (let i = 0; i < kv.length; i++) {
+    if (Math.abs(kv[i] - xi) < eps) all.push(i);
+  }
+  return all;
 }
 
 function validateKV(kv, p) {
@@ -314,47 +312,40 @@ function validateKV(kv, p) {
   const open = mode === 'manual' ? isOpenManual() : isOpen();
   if (open) {
     const startMult = kv.filter(v => v === kv[0]).length;
-    const endMult = kv.filter(v => v === kv[kv.length-1]).length;
+    const endMult   = kv.filter(v => v === kv[kv.length-1]).length;
     if (startMult !== p+1) errs.push(`Open vector requires start multiplicity p+1 = ${p+1}, got ${startMult}.`);
-    if (endMult !== p+1) errs.push(`Open vector requires end multiplicity p+1 = ${p+1}, got ${endMult}.`);
+    if (endMult   !== p+1) errs.push(`Open vector requires end multiplicity p+1 = ${p+1}, got ${endMult}.`);
   }
-  const iks = getAllKnots(kv).filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]);
-  for (const {xi, mult} of iks)
+  for (const {xi, mult} of getAllKnots(kv).filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]))
     if (mult > p) errs.push(`Interior knot ξ = ${xi.toFixed(4)} has multiplicity ${mult} > p = ${p}.`);
   return errs;
 }
 
 function getKV() {
-  if (mode === 'uniform') { const kv = buildKV_uniform(); return {kv, p: getP(), errs: validateKV(kv, getP())}; }
+  if (mode === 'uniform') {
+    const kv = buildKV_uniform();
+    return {kv, p: getP(), errs: validateKV(kv, getP())};
+  }
   const kv = buildKV_manual();
   const p = getPManual();
   if (!kv) return {kv: null, p, errs: ['Could not parse knot vector — check input.']};
   return {kv, p, errs: validateKV(kv, p)};
 }
 
-function spanIndices(xi, kv) {
-  const all = [], eps = 1e-10;
-  let active = -1;
-  for (let i = 0; i < kv.length; i++) {
-    if (Math.abs(kv[i] - xi) < eps) {
-      all.push(i);
-      if (i < kv.length-1 && kv[i+1] > xi + eps) active = i;
-    }
-  }
-  return {all, active};
-}
-
 function renderUniformControls() {
   const p = getP();
   const nInt = parseInt(document.getElementById('nInt').value);
   const prev = {};
-  for (let j = 0; j < 6; j++) { const el = document.getElementById('um_'+j); if (el) prev[j] = parseInt(el.textContent); }
+  for (let j = 0; j < 6; j++) {
+    const el = document.getElementById('um_'+j);
+    if (el) prev[j] = parseInt(el.textContent);
+  }
   const container = document.getElementById('uMultControls');
-  const section = document.getElementById('uMultSection');
+  const section   = document.getElementById('uMultSection');
   container.innerHTML = '';
   section.style.display = nInt === 0 ? 'none' : 'block';
   for (let j = 0; j < nInt; j++) {
-    const xi = ((j+1)/(nInt+1)).toFixed(3);
+    const xi  = ((j+1)/(nInt+1)).toFixed(3);
     const cur = Math.min(prev[j]||1, p);
     const wrap = document.createElement('div');
     wrap.className = 'ktag';
@@ -366,8 +357,14 @@ function renderUniformControls() {
       </div>
       <span class="clbl" id="uctag_${j}"></span>`;
     container.appendChild(wrap);
-    document.getElementById('udec_'+j).onclick = () => { const v = parseInt(document.getElementById('um_'+j).textContent); if (v > 1) { document.getElementById('um_'+j).textContent = v-1; update(); } };
-    document.getElementById('uinc_'+j).onclick = () => { const v = parseInt(document.getElementById('um_'+j).textContent); if (v < getP()) { document.getElementById('um_'+j).textContent = v+1; update(); } };
+    document.getElementById('udec_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('um_'+j).textContent);
+      if (v > 1) { document.getElementById('um_'+j).textContent = v-1; update(); }
+    };
+    document.getElementById('uinc_'+j).onclick = () => {
+      const v = parseInt(document.getElementById('um_'+j).textContent);
+      if (v < getP()) { document.getElementById('um_'+j).textContent = v+1; update(); }
+    };
   }
 }
 
@@ -379,12 +376,9 @@ function update() {
 
   const refCheck = document.getElementById('refCheck');
   if (kv) {
-    const n = kv.length - p - 1;
-    const required = n + p + 1;
-    const valid = required === kv.length;
-    refCheck.innerHTML =
-      `n = ${n},&nbsp;&nbsp; p = ${p},&nbsp;&nbsp; knot vector length = ${kv.length}&nbsp;&nbsp;` +
-      `&rarr;&nbsp; n + p + 1 = ${n} + ${p} + 1 = ${required} ` +
+    const n       = kv.length - p - 1;
+    const valid   = (n + p + 1) === kv.length;
+    refCheck.innerHTML = `n = ${n},&nbsp;&nbsp; p = ${p},&nbsp;&nbsp; knot vector length = ${kv.length}&nbsp;&nbsp;&rarr;&nbsp; ${n} + ${p} + 1 = ${n+p+1} ` +
       (valid ? `<span style="color:var(--teal);">&#10003; valid</span>` : `<span style="color:var(--coral);">&#10007; invalid</span>`);
   } else {
     refCheck.textContent = 'Enter a valid knot vector to see values.';
@@ -398,48 +392,46 @@ function update() {
     return;
   }
 
-  const n = kv.length - p - 2;
-  if (n < 0) return;
+  const n    = kv.length - p - 2;
+  const tMin = kv[0], tMax = kv[kv.length-1];
+  const M    = 600;
+  const ts   = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin) * i/M);
 
+  // stats
   const statsRow = document.getElementById('statsRow');
   statsRow.innerHTML = '';
-  [{label:'Degree', val:`p = ${p}`},{label:'Basis functions', val:`n = ${n+1}`},{label:'Knot vector length', val:`${kv.length}`},{label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
+  [{label:'Degree', val:`p = ${p}`}, {label:'Basis functions', val:`n = ${n+1}`}, {label:'Knot vector length', val:`${kv.length}`}, {label:'Knot spans', val:`${kv.filter((v,i,a) => i < a.length-1 && a[i+1] > v).length}`}]
     .forEach(c => { const el = document.createElement('div'); el.className = 'stat-chip'; el.innerHTML = `${c.label}: <strong>${c.val}</strong>`; statsRow.appendChild(el); });
 
-  const tMin = kv[0], tMax = kv[kv.length-1];
-  const M = 600;
-  const ts = Array.from({length:M+1}, (_,i) => {
-    const t = tMin + (tMax - tMin) * i / M;
-    return Math.min(t, tMax);
-  });
-
+  // datasets
   const datasets = [];
   for (let i = 0; i <= n; i++) {
     datasets.push({
       label: `N_{${i+1},${p}}`,
-      data: ts.map(t => ({x:t, y:evalBasis(i,p,t,kv)})),
-      borderColor: COLORS[i%COLORS.length],
+      data: ts.map(t => ({x: t, y: bspline(i, p, t, kv)})),
+      borderColor: COLORS[i % COLORS.length],
       backgroundColor: 'transparent',
       borderWidth: 2, pointRadius: 0, tension: 0, showLine: true,
     });
   }
 
+  // legend
   const legend = document.getElementById('legend');
   legend.innerHTML = '';
-  datasets.forEach((d,i) => {
+  for (let i = 0; i <= n; i++) {
     const item = document.createElement('div');
     item.className = 'li';
     item.innerHTML = `<span class="ls" style="background:${COLORS[i%COLORS.length]}"></span><span>N<sub>${i+1},${p}</sub></span>`;
     legend.appendChild(item);
-  });
+  }
 
+  // annotations
   const showKnotLines = document.getElementById('knotLineToggle').checked;
   const showGreville  = document.getElementById('grevilleToggle').checked;
   const annotations   = {};
 
   if (showKnotLines) {
-    const uniqueAll = [...new Set(kv)].sort((a,b) => a-b);
-    uniqueAll.forEach((xi, idx) => {
+    [...new Set(kv)].sort((a,b) => a-b).forEach((xi, idx) => {
       annotations['kl'+idx] = {
         type: 'line', xMin: xi, xMax: xi,
         borderColor: 'rgba(0,0,0,0.35)', borderWidth: 1.5, borderDash: [5,3],
@@ -478,39 +470,34 @@ function update() {
     }
   });
 
-  // continuity table — ALL knots including endpoints
+  // continuity table
   const allKnots = getAllKnots(kv);
-  const tbody = document.getElementById('contBody');
+  const tbody    = document.getElementById('contBody');
   tbody.innerHTML = '';
   allKnots.forEach(({xi, mult}) => {
     const isEndpoint = (xi === kv[0] || xi === kv[kv.length-1]);
-    const cont = p - mult;
-    let contLabel, badgeCls;
+    const cont       = p - mult;
+    let contLabel;
     if (isEndpoint) {
-      contLabel = mult === p+1 ? `interpolates endpoint` : `C<sup>${cont}</sup>`;
-      badgeCls = 'bc';
+      contLabel = mult === p+1 ? 'interpolates endpoint' : `C<sup>${cont}</sup>`;
     } else {
       contLabel = cont >= 0 ? `C<sup>${cont}</sup>` : 'discontinuous';
-      badgeCls = cont >= 0 ? 'bc' : 'bd';
     }
-    const badgeTxt = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
-    const {all, active} = spanIndices(xi, kv);
-    const spanStr = all.map(i => `${i}`).join(', ');
-    const activeFns = activeBasisAtKnot(xi, p, kv);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>ξ = ${parseFloat(xi.toFixed(6))}</td><td>${mult}</td><td>${contLabel}</td><td>${activeFns.length} (${activeFns.map(i => `N<sub>${i},${p}</sub>`).join(', ')})</td><td>${spanStr}</td>`;
+    const spans      = spanIndices(xi, kv).join(', ');
+    const activeFns  = activeBasisAtKnot(xi, p, kv);
+    const tr         = document.createElement('tr');
+    tr.innerHTML = `<td>ξ = ${parseFloat(xi.toFixed(6))}</td><td>${mult}</td><td>${contLabel}</td><td>${activeFns.length} (${activeFns.map(i => `N<sub>${i},${p}</sub>`).join(', ')})</td><td>${spans}</td>`;
     tbody.appendChild(tr);
   });
 
-  // update uniform multiplicity tags
-  const iks = allKnots.filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]);
-  iks.forEach(({xi, mult}, idx) => {
-    const cont = p - mult;
+  // update multiplicity tags
+  allKnots.filter(k => k.xi > kv[0] && k.xi < kv[kv.length-1]).forEach(({xi, mult}, idx) => {
     const ctag = document.getElementById('uctag_'+idx);
-    if (ctag) ctag.textContent = cont >= 0 ? `C${cont}` : 'C\u207b\u00b9';
+    if (ctag) ctag.textContent = `C${p-mult >= 0 ? p-mult : '\u207b\u00b9'}`;
   });
 }
 
+// event listeners
 document.getElementById('modeSeg').querySelectorAll('button').forEach(btn => {
   btn.onclick = () => {
     mode = btn.dataset.m;
@@ -523,12 +510,12 @@ document.getElementById('modeSeg').querySelectorAll('button').forEach(btn => {
   };
 });
 
-document.getElementById('deg').onchange = () => { renderUniformControls(); update(); };
-document.getElementById('degManual').onchange = update;
-document.getElementById('openToggle').onchange = update;
+document.getElementById('deg').onchange          = () => { renderUniformControls(); update(); };
+document.getElementById('degManual').onchange     = update;
+document.getElementById('openToggle').onchange    = update;
 document.getElementById('openToggleManual').onchange = update;
-document.getElementById('nInt').onchange = () => { renderUniformControls(); update(); };
-document.getElementById('manualInput').oninput = update;
+document.getElementById('nInt').onchange          = () => { renderUniformControls(); update(); };
+document.getElementById('manualInput').oninput    = update;
 document.getElementById('grevilleToggle').onchange = update;
 document.getElementById('knotLineToggle').onchange = update;
 
@@ -542,14 +529,14 @@ document.getElementById('exportPng').onclick = () => {
 document.getElementById('exportCsv').onclick = () => {
   const {kv, p, errs} = getKV();
   if (errs.length || !kv) return;
-  const n = kv.length - p - 2;
+  const n    = kv.length - p - 2;
   const tMin = kv[0], tMax = kv[kv.length-1];
-  const M = 500;
-  const ts = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
+  const M    = 500;
+  const ts   = Array.from({length:M+1}, (_,i) => tMin + (tMax-tMin)*i/M);
   const header = ['xi', ...Array.from({length:n+1}, (_,i) => `N_${i+1}_${p}`)].join(',');
-  const rows = ts.map(t => [t.toFixed(6), ...Array.from({length:n+1}, (_,i) => N(i,p,t,kv).toFixed(8))].join(','));
-  const blob = new Blob([[header, ...rows].join('\n')], {type:'text/csv'});
-  const link = document.createElement('a');
+  const rows   = ts.map(t => [t.toFixed(6), ...Array.from({length:n+1}, (_,i) => bspline(i,p,t,kv).toFixed(8))].join(','));
+  const blob   = new Blob([[header, ...rows].join('\n')], {type:'text/csv'});
+  const link   = document.createElement('a');
   link.download = 'basis_functions.csv';
   link.href = URL.createObjectURL(blob);
   link.click();
